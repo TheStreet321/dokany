@@ -591,6 +591,6 @@ DOKAN_OPERATIONS MemoryFSOperations = {
     GetVolumeInformation,
     Mounted,
     Unmounted,
-    GetFileSecurity,  // GetFileSecurity
-    SetFileSecurity,  // SetFileSecurity
+    GetFileSecurity,
+    SetFileSecurity,
 };
