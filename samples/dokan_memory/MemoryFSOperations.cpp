@@ -30,6 +30,12 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
   spdlog::info(L"CreateFile: {} with node: {}", fileNameStr,
                (fileNode != nullptr));
 
+  // Windows will automatically try to create and access different system directories
+  if (fileNameStr == L"\\System Volume Information"
+      || fileNameStr == L"\\$RECYCLE.BIN") {
+    return STATUS_NO_SUCH_FILE;
+  }
+
   if (fileNode && fileNode->IsDirectory) {
     if (CreateOptions & FILE_NON_DIRECTORY_FILE)
       return STATUS_FILE_IS_A_DIRECTORY;
@@ -196,6 +202,9 @@ static NTSTATUS DOKAN_CALLBACK WriteFile(LPCWSTR FileName, LPCVOID Buffer,
   auto fileSize = fileNode->getFileSize();
 
   if (DokanFileInfo->PagingIo) {
+    // PagingIo cannot extend file size.
+    // We return STATUS_SUCCESS when Offset is beyond fileSize
+    // and write the maximum we are allowed to.
     if (Offset >= fileSize) {
       spdlog::info(L"\tPagingIo Outside Offset: {} FileSize: {}", Offset,
                    fileSize);
