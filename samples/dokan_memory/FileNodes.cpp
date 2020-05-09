@@ -82,6 +82,18 @@ NTSTATUS MemoryFSFileNodes::Add(const std::shared_ptr<FileNode>& fileNode) {
     return STATUS_OBJECT_PATH_NOT_FOUND;
   }
 
+  auto stream_names = GetStreamNames(fileName);
+  if (!stream_names.second.empty()) {
+    spdlog::info(
+        L"Add file: {} is an alternate stream {} and has {} as main stream",
+        fileName, stream_names.second, stream_names.first);
+    auto main_node = Find(parent_path + stream_names.first);
+    if (!main_node) return STATUS_OBJECT_PATH_NOT_FOUND;
+    main_node->AddStream(fileNode);
+    fileNode->MainStream = main_node;
+    fileNode->FileIndex = main_node->FileIndex;
+  }
+
   // If we have a folder, we add it to our directoryPaths
   if (fileNode->IsDirectory && !_directoryPaths.count(fileName))
     _directoryPaths.emplace(fileName, std::set<std::shared_ptr<FileNode>>());
@@ -134,6 +146,17 @@ void MemoryFSFileNodes::Remove(const std::shared_ptr<FileNode>& fileNode) {
     for (const auto& file : files) Remove(file);
 
     _directoryPaths.erase(fileName);
+  }
+
+  // Cleanup streams
+  if (fileNode->MainStream) {
+    // Is an alternate stream
+    fileNode->MainStream->RemoveStream(fileNode);
+  } else {
+    // Is a main stream
+    // Remove possible alternate stream
+    auto streams = fileNode->GetStreams();
+    for (const auto& stream : streams) Remove(stream.first);
   }
 }
 
@@ -209,4 +232,19 @@ NTSTATUS MemoryFSFileNodes::Move(std::wstring oldFilename,
 
   spdlog::info(L"Move file: {} to folder: {}", oldFilename, newFileName);
   return STATUS_SUCCESS;
+}
+
+std::pair<std::wstring, std::wstring> MemoryFSFileNodes::GetStreamNames(
+    std::wstring fileName) {
+  const auto real_fileName =
+      std::filesystem::path(fileName).filename().wstring();
+  auto stream_pos = real_fileName.find(L":");
+  if (stream_pos == std::string::npos)
+    return std::pair<std::wstring, std::wstring>(real_fileName, std::wstring());
+
+  const auto main_stream = real_fileName.substr(0, stream_pos);
+  ++stream_pos;
+  const auto alternate_stream =
+      real_fileName.substr(stream_pos, real_fileName.length() - stream_pos);
+  return std::pair<std::wstring, std::wstring>(main_stream, alternate_stream);
 }

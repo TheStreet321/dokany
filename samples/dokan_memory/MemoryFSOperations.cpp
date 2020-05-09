@@ -10,6 +10,8 @@
 #include <sstream>
 #include <unordered_map>
 
+static const std::wstring g_data_stream_name = std::wstring(L":$DATA");
+
 static NTSTATUS DOKAN_CALLBACK
 ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
              ACCESS_MASK DesiredAccess, ULONG FileAttributes, ULONG ShareAccess,
@@ -25,7 +27,13 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
       &genericDesiredAccess, &fileAttributesAndFlags, &creationDisposition);
 
   auto fileNameStr = std::wstring(FileName);
+  // Remove $DATA stream if exist as it is the default / main stream.
+  auto data_stream_pos = fileNameStr.rfind(g_data_stream_name);
+  if (data_stream_pos ==
+      (fileNameStr.length() - g_data_stream_name.length()))
+    fileNameStr = fileNameStr.substr(0, data_stream_pos);
   auto fileNode = fileNodes->Find(fileNameStr);
+  auto stream_names = MemoryFSFileNodes::GetStreamNames(fileNameStr);
 
   spdlog::info(L"CreateFile: {} with node: {}", fileNameStr,
                (fileNode != nullptr));
@@ -49,6 +57,9 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
 
     if (creationDisposition == CREATE_NEW ||
         creationDisposition == OPEN_ALWAYS) {
+      // Cannot create a stream as directory
+      if (!stream_names.second.empty()) return STATUS_NOT_A_DIRECTORY;
+
       if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
 
       auto newfileNode = std::make_shared<FileNode>(
@@ -88,6 +99,21 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
         /*
          * Creates a new file, always.
          */
+
+        // The file is a alternate stream, we need to create the main if it does
+        // not exist
+        if (!stream_names.second.empty()) {
+          auto main_stream_name =
+              std::filesystem::path(fileNameStr).parent_path().wstring() +
+              stream_names.first;
+          if (!fileNodes->Find(main_stream_name)) {
+            auto n = fileNodes->Add(std::make_shared<FileNode>(
+                main_stream_name, false, fileAttributesAndFlags,
+                SecurityContext));
+            if (n != STATUS_SUCCESS) return n;
+          }
+        }
+
         auto n = fileNodes->Add(std::make_shared<FileNode>(
             fileNameStr, false, fileAttributesAndFlags, SecurityContext));
         if (n != STATUS_SUCCESS) return n;
@@ -104,6 +130,19 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
          * Creates a new file, only if it does not already exist.
          */
         if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
+
+        // The file is a alternate stream, we need to create the main if it does not exist
+        if (!stream_names.second.empty()) {
+          auto main_stream_name =
+              std::filesystem::path(fileNameStr).parent_path().wstring() + stream_names.first;
+          if (!fileNodes->Find(main_stream_name)) {
+            auto n = fileNodes->Add(std::make_shared<FileNode>(
+                main_stream_name, false, fileAttributesAndFlags,
+                SecurityContext));
+            if (n != STATUS_SUCCESS) return n;
+          }
+        }
+
         auto n = fileNodes->Add(std::make_shared<FileNode>(
             fileNameStr, false, fileAttributesAndFlags, SecurityContext));
         if (n != STATUS_SUCCESS) return n;
@@ -261,9 +300,9 @@ GetFileInformation(LPCWSTR FileName, LPBY_HANDLE_FILE_INFORMATION Buffer,
   Buffer->dwVolumeSerialNumber = 0x19831116;
 
   spdlog::info(
-      L"GetFileInformation: {} Attributes: {} Times: Creation {} "
-      L"LastAccess {} LastWrite {} FileSize {} NumberOfLinks {} "
-      L"VolumeSerialNumber {}",
+      L"GetFileInformation: {} Attributes: {:x} Times: Creation {:x} "
+      L"LastAccess {:x} LastWrite {:x} FileSize {} NumberOfLinks {} "
+      L"VolumeSerialNumber {:x}",
       fileNameStr, fileNode->Attributes, fileNode->Times.Creation,
       fileNode->Times.LastAccess, fileNode->Times.LastWrite, strLength,
       Buffer->nNumberOfLinks, Buffer->dwVolumeSerialNumber);
@@ -574,7 +613,45 @@ FindStreams(LPCWSTR FileName, PFillFindStreamData FillFindStreamData,
   auto fileNode = fileNodes->Find(fileNameStr);
 
   if (!fileNode) return STATUS_OBJECT_NAME_NOT_FOUND;
-  return STATUS_NOT_IMPLEMENTED;
+
+  auto streams = fileNode->GetStreams();
+
+  WIN32_FIND_STREAM_DATA streamData;
+  ZeroMemory(&streamData, sizeof(WIN32_FIND_STREAM_DATA));
+
+  if (!fileNode->IsDirectory) {
+    // Add the main stream name
+    std::copy(g_data_stream_name.begin(), g_data_stream_name.end(),
+              std::begin(streamData.cStreamName) + 1);
+    streamData.cStreamName[0] = ':';
+    streamData.cStreamName[g_data_stream_name.length() + 1] = '\0';
+    streamData.StreamSize.QuadPart = fileNode->getFileSize();
+    FillFindStreamData(&streamData, DokanFileInfo);
+  } else if (streams.empty()) {
+    // The node is a directory without any alternate streams
+    return STATUS_END_OF_FILE;
+  }
+
+  // Add the alternated stream attached
+  for (const auto& stream : streams) {
+    auto stream_names = MemoryFSFileNodes::GetStreamNames(stream.first);
+    if (stream_names.second.length() + g_data_stream_name.length() + 1 >
+        sizeof(streamData.cStreamName))
+      continue;
+    std::copy(stream_names.second.begin(), stream_names.second.end(),
+              std::begin(streamData.cStreamName) + 1);
+    std::copy(
+        g_data_stream_name.begin(), g_data_stream_name.end(),
+        std::begin(streamData.cStreamName) + stream_names.second.length() + 1);
+    streamData.cStreamName[0] = ':';
+    streamData.cStreamName[stream_names.second.length() +
+                           g_data_stream_name.length() + 1] = '\0';
+    streamData.StreamSize.QuadPart = stream.second->getFileSize();
+    spdlog::info(L"FindStreams: {} StreamName: {} Size: {:x}", fileNameStr,
+                 stream_names.second, streamData.StreamSize.QuadPart);
+    FillFindStreamData(&streamData, DokanFileInfo);
+  }
+  return STATUS_SUCCESS;
 }
 
 DOKAN_OPERATIONS MemoryFSOperations = {
@@ -602,4 +679,5 @@ DOKAN_OPERATIONS MemoryFSOperations = {
     Unmounted,
     GetFileSecurity,
     SetFileSecurity,
+    FindStreams
 };

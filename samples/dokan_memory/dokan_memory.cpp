@@ -2,6 +2,9 @@
 #include <spdlog/spdlog.h>
 
 int main() {
+
+  spdlog::set_level(spdlog::level::off);
+
   try {
     auto dokanMemoryFs = std::make_shared<DokanMemoryFS>();
     dokanMemoryFs->Run();

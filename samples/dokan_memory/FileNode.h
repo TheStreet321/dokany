@@ -11,6 +11,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 struct SecurityInformations : std::mutex {
   PSECURITY_DESCRIPTOR Descriptor = nullptr;
@@ -63,8 +64,13 @@ class FileNode {
   const std::wstring getFileName();
   void setFileName(const std::wstring& f);
 
+  void AddStream(std::shared_ptr<FileNode> stream);
+  void RemoveStream(std::shared_ptr<FileNode> stream);
+  std::unordered_map<std::wstring, std::shared_ptr<FileNode> > GetStreams();
+
   // No lock needed above
   std::atomic<bool> IsDirectory = false;
+  std::shared_ptr<FileNode> MainStream;
   std::atomic<DWORD> Attributes = 0;
   LONGLONG FileIndex = 0;
 
@@ -80,4 +86,5 @@ class FileNode {
 
   std::mutex _fileName_mutex;
   std::wstring _fileName;
+  std::unordered_map<std::wstring, std::shared_ptr<FileNode> > _streams;
 };

@@ -57,3 +57,19 @@ void FileNode::setFileName(const std::wstring& f) {
   std::lock_guard<std::mutex> lock(_fileName_mutex);
   _fileName = f;
 }
+
+void FileNode::AddStream(std::shared_ptr<FileNode> stream) {
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  _streams[stream->getFileName()] = stream;
+}
+
+void FileNode::RemoveStream(std::shared_ptr<FileNode> stream) {
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  _streams.erase(stream->getFileName());
+}
+
+std::unordered_map<std::wstring, std::shared_ptr<FileNode> >
+FileNode::GetStreams() {
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  return _streams;
+}

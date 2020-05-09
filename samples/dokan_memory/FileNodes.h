@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include "FileNode.h"
 
-// TODO - support streams
 class MemoryFSFileNodes {
  public:
   MemoryFSFileNodes();
@@ -23,6 +22,9 @@ class MemoryFSFileNodes {
 
   NTSTATUS Move(std::wstring oldFilename, std::wstring newFileName,
                 BOOL replaceIfExisting);
+
+  static std::pair<std::wstring, std::wstring> GetStreamNames(
+      std::wstring real_filename);
 
  private:
   std::atomic<LONGLONG> _FSFileIndexCount = 1;
