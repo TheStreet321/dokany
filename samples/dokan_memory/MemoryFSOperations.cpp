@@ -12,6 +12,22 @@
 
 static const std::wstring g_data_stream_name = std::wstring(L":$DATA");
 
+NTSTATUS CreateMainStream(MemoryFSFileNodes* fileNodes,
+                          std::wstring fileNameStr,
+                          std::pair<std::wstring, std::wstring> stream_names,
+                          DWORD fileAttributesAndFlags,
+                          PDOKAN_IO_SECURITY_CONTEXT SecurityContext) {
+  auto main_stream_name =
+      std::filesystem::path(fileNameStr).parent_path().wstring() +
+      stream_names.first;
+  if (!fileNodes->Find(main_stream_name)) {
+    auto n = fileNodes->Add(std::make_shared<FileNode>(
+        main_stream_name, false, fileAttributesAndFlags, SecurityContext));
+    if (n != STATUS_SUCCESS) return n;
+  }
+  return STATUS_SUCCESS;
+}
+
 static NTSTATUS DOKAN_CALLBACK
 ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
              ACCESS_MASK DesiredAccess, ULONG FileAttributes, ULONG ShareAccess,
@@ -32,6 +48,7 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
   if (data_stream_pos ==
       (fileNameStr.length() - g_data_stream_name.length()))
     fileNameStr = fileNameStr.substr(0, data_stream_pos);
+
   auto fileNode = fileNodes->Find(fileNameStr);
   auto stream_names = MemoryFSFileNodes::GetStreamNames(fileNameStr);
 
@@ -100,18 +117,12 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
          * Creates a new file, always.
          */
 
-        // The file is a alternate stream, we need to create the main if it does
-        // not exist
         if (!stream_names.second.empty()) {
-          auto main_stream_name =
-              std::filesystem::path(fileNameStr).parent_path().wstring() +
-              stream_names.first;
-          if (!fileNodes->Find(main_stream_name)) {
-            auto n = fileNodes->Add(std::make_shared<FileNode>(
-                main_stream_name, false, fileAttributesAndFlags,
-                SecurityContext));
-            if (n != STATUS_SUCCESS) return n;
-          }
+          // The createfile is a alternate stream,
+          // we need to be sure main stream exist
+          auto n = CreateMainStream(fileNodes, fileNameStr, stream_names,
+                                    fileAttributesAndFlags, SecurityContext);
+          if (n != STATUS_SUCCESS) return n;
         }
 
         auto n = fileNodes->Add(std::make_shared<FileNode>(
@@ -131,16 +142,12 @@ ZwCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
          */
         if (fileNode) return STATUS_OBJECT_NAME_COLLISION;
 
-        // The file is a alternate stream, we need to create the main if it does not exist
         if (!stream_names.second.empty()) {
-          auto main_stream_name =
-              std::filesystem::path(fileNameStr).parent_path().wstring() + stream_names.first;
-          if (!fileNodes->Find(main_stream_name)) {
-            auto n = fileNodes->Add(std::make_shared<FileNode>(
-                main_stream_name, false, fileAttributesAndFlags,
-                SecurityContext));
-            if (n != STATUS_SUCCESS) return n;
-          }
+          // The createfile is a alternate stream,
+          // we need to be sure main stream exist
+          auto n = CreateMainStream(fileNodes, fileNameStr, stream_names,
+                                    fileAttributesAndFlags, SecurityContext);
+          if (n != STATUS_SUCCESS) return n;
         }
 
         auto n = fileNodes->Add(std::make_shared<FileNode>(
