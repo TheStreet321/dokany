@@ -356,7 +356,7 @@
 
         cd .\samples
         .\memfs_test.ps1 -Memfs $memfs
-        .\mirror_test.ps1 -Mirrors $mirrors
+        #.\mirror_test.ps1 -Mirrors $mirrors
       }
   - ps: |
       if ($env:CONFIGURATION -eq "FsTest") {
