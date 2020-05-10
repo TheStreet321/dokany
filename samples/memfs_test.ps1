@@ -27,7 +27,7 @@ $Configs = @(
 		"MemFSArguments" = "/l $DokanDriverLetter";
 		"Destination" = "$($DokanDriverLetter):";
 		"Name" = "drive";
-	},
+	}
 )
 
 $ifstestParameters = @(
