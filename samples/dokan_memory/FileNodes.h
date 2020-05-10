@@ -5,33 +5,35 @@
 #include <iostream>
 #include <set>
 #include <unordered_map>
-#include "FileNode.h"
+#include "filenode.h"
 
-class MemoryFSFileNodes {
+namespace memfs {
+class fs_filenodes {
  public:
-  MemoryFSFileNodes();
+  fs_filenodes();
 
-  NTSTATUS Add(const std::shared_ptr<FileNode>& fileNode);
+  NTSTATUS add(const std::shared_ptr<filenode>& filenode);
 
-  std::shared_ptr<FileNode> Find(const std::wstring& fileName);
+  std::shared_ptr<filenode> find(const std::wstring& filename);
 
-  std::set<std::shared_ptr<FileNode>> ListFolder(const std::wstring& fileName);
+  std::set<std::shared_ptr<filenode>> list_folder(const std::wstring& filename);
 
-  void Remove(const std::wstring& fileName);
-  void Remove(const std::shared_ptr<FileNode>& fileNode);
+  void remove(const std::wstring& filename);
+  void remove(const std::shared_ptr<filenode>& filenode);
 
-  NTSTATUS Move(std::wstring oldFilename, std::wstring newFileName,
-                BOOL replaceIfExisting);
+  NTSTATUS move(std::wstring old_filename, std::wstring new_filename,
+                BOOL replace_if_existing);
 
-  static std::pair<std::wstring, std::wstring> GetStreamNames(
+  static std::pair<std::wstring, std::wstring> get_stream_names(
       std::wstring real_filename);
 
  private:
-  std::atomic<LONGLONG> _FSFileIndexCount = 1;
+  std::atomic<LONGLONG> _fs_fileindex_count = 1;
 
   // Mutex need to be aquired when using fileNodes / directoryPaths
-  std::recursive_mutex _filesNodes_mutex;
-  std::unordered_map<std::wstring, std::shared_ptr<FileNode>> _fileNodes;
-  std::unordered_map<std::wstring, std::set<std::shared_ptr<FileNode>>>
+  std::recursive_mutex _filesnodes_mutex;
+  std::unordered_map<std::wstring, std::shared_ptr<filenode>> _filenodes;
+  std::unordered_map<std::wstring, std::set<std::shared_ptr<filenode>>>
       _directoryPaths;
 };
+}  // namespace memfs

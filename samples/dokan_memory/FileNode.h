@@ -3,7 +3,7 @@
 #include <dokan/dokan.h>
 #include <dokan/fileinfo.h>
 
-#include "MemoryFSHelper.h"
+#include "memfs_helper.h"
 
 #include <winbase.h>
 #include <atomic>
@@ -13,78 +13,81 @@
 #include <string>
 #include <unordered_map>
 
-struct SecurityInformations : std::mutex {
-  PSECURITY_DESCRIPTOR Descriptor = nullptr;
-  DWORD DescriptorSize = 0;
+namespace memfs {
+struct security_informations : std::mutex {
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  DWORD descriptor_size = 0;
 
-  ~SecurityInformations() {
-    if (Descriptor) delete[] Descriptor;
+  ~security_informations() {
+    if (descriptor) delete[] descriptor;
   }
 
-  void SetDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor) {
-    if (Descriptor) delete[] Descriptor;
-    if (!SecurityDescriptor) return;
-    DescriptorSize = GetSecurityDescriptorLength(SecurityDescriptor);
-    Descriptor = new byte[DescriptorSize];
-    memcpy(Descriptor, SecurityDescriptor, DescriptorSize);
+  void SetDescriptor(PSECURITY_DESCRIPTOR securitydescriptor) {
+    if (descriptor) delete[] descriptor;
+    if (!securitydescriptor) return;
+    descriptor_size = GetSecurityDescriptorLength(securitydescriptor);
+    descriptor = new byte[descriptor_size];
+    memcpy(descriptor, securitydescriptor, descriptor_size);
   }
 };
 
-struct FileTimes {
+struct filetimes {
   void Reset() {
     FILETIME t;
     GetSystemTimeAsFileTime(&t);
-    LastAccess = LastWrite = Creation =
-        MemoryFSHelper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
+    lastaccess = lastwrite = creation =
+        memfs_helper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
   }
 
-  static bool isEmpty(CONST FILETIME* fileTime) {
-    return fileTime->dwHighDateTime == 0 && fileTime->dwLowDateTime == 0;
+  static bool isEmpty(CONST FILETIME* filetime) {
+    return filetime->dwHighDateTime == 0 && filetime->dwLowDateTime == 0;
   }
 
-  std::atomic<LONGLONG> Creation;
-  std::atomic<LONGLONG> LastAccess;
-  std::atomic<LONGLONG> LastWrite;
+  std::atomic<LONGLONG> creation;
+  std::atomic<LONGLONG> lastaccess;
+  std::atomic<LONGLONG> lastwrite;
 };
 
-class FileNode {
+class filenode {
  public:
-  FileNode(std::wstring fileName, bool isDirectory, DWORD fileAttr,
-           PDOKAN_IO_SECURITY_CONTEXT SecurityContext);
+  filenode(std::wstring filename, bool is_directory, DWORD file_attr,
+           PDOKAN_IO_SECURITY_CONTEXT security_context);
 
-  FileNode(const FileNode& f) = delete;
+  filenode(const filenode& f) = delete;
 
-  DWORD Read(LPVOID Buffer, DWORD BufferLength, LONGLONG Offset);
-  DWORD Write(LPCVOID Buffer, DWORD NumberOfBytesToWrite, LONGLONG Offset);
+  DWORD read(LPVOID buffer, DWORD bufferlength, LONGLONG offset);
+  DWORD write(LPCVOID buffer, DWORD number_of_bytes_to_write, LONGLONG offset);
 
-  const LONGLONG getFileSize();
-  void setEndOfFile(const LONGLONG& byteOffset);
+  const LONGLONG get_filesize();
+  void set_endoffile(const LONGLONG& byte_offset);
 
   // FileName change during move
-  const std::wstring getFileName();
-  void setFileName(const std::wstring& f);
+  const std::wstring get_filename();
+  void set_filename(const std::wstring& filename);
 
-  void AddStream(std::shared_ptr<FileNode> stream);
-  void RemoveStream(std::shared_ptr<FileNode> stream);
-  std::unordered_map<std::wstring, std::shared_ptr<FileNode> > GetStreams();
+  void add_stream(std::shared_ptr<filenode> stream);
+  void remove_stream(std::shared_ptr<filenode> stream);
+  std::unordered_map<std::wstring, std::shared_ptr<filenode> > get_streams();
 
   // No lock needed above
-  std::atomic<bool> IsDirectory = false;
-  std::shared_ptr<FileNode> MainStream;
-  std::atomic<DWORD> Attributes = 0;
-  LONGLONG FileIndex = 0;
+  std::atomic<bool> is_directory = false;
+  std::shared_ptr<filenode> main_stream;
+  std::atomic<DWORD> attributes = 0;
+  LONGLONG fileindex = 0;
 
-  FileTimes Times;
-  SecurityInformations Security;
+  filetimes times;
+  security_informations security;
 
  private:
-  FileNode() = default;
+  filenode() = default;
 
   std::mutex _data_mutex;
   // _data_mutex need to be aquired
   std::vector<uint8_t> _data;
+  std::unordered_map<std::wstring, std::shared_ptr<filenode> > _streams;
 
   std::mutex _fileName_mutex;
+  // _fileName_mutex need to be aquired
   std::wstring _fileName;
-  std::unordered_map<std::wstring, std::shared_ptr<FileNode> > _streams;
 };
+}  // namespace memfs

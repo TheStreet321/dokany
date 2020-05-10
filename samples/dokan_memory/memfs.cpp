@@ -1,18 +1,19 @@
-#include "DokanMemoryFS.h"
+#include "memfs.h"
 
-void DokanMemoryFS::Run() {
-  FileNodes = std::make_unique<MemoryFSFileNodes>();
+namespace memfs {
+void memfs::run() {
+  fs_filenodes = std::make_unique<::memfs::fs_filenodes>();
 
-  DOKAN_OPTIONS dokanOptions;
-  ZeroMemory(&dokanOptions, sizeof(DOKAN_OPTIONS));
-  dokanOptions.Version = DOKAN_VERSION;
-  dokanOptions.ThreadCount = 1;
-  dokanOptions.Options = // DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG |
-                         DOKAN_OPTION_MOUNT_MANAGER | DOKAN_OPTION_ALT_STREAM;
-  dokanOptions.MountPoint = L"M";
-  dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(FileNodes.get());
+  DOKAN_OPTIONS dokan_options;
+  ZeroMemory(&dokan_options, sizeof(DOKAN_OPTIONS));
+  dokan_options.Version = DOKAN_VERSION;
+  dokan_options.ThreadCount = 1;
+  dokan_options.Options =  // DOKAN_OPTION_STDERR | DOKAN_OPTION_DEBUG |
+      DOKAN_OPTION_MOUNT_MANAGER | DOKAN_OPTION_ALT_STREAM;
+  dokan_options.MountPoint = L"M";
+  dokan_options.GlobalContext = reinterpret_cast<ULONG64>(fs_filenodes.get());
 
-  NTSTATUS status = DokanMain(&dokanOptions, &MemoryFSOperations);
+  NTSTATUS status = DokanMain(&dokan_options, &memfs_operations);
   switch (status) {
     case DOKAN_SUCCESS:
       break;
@@ -42,3 +43,4 @@ void DokanMemoryFS::Run() {
       break;
   }
 }
+}  // namespace memfs

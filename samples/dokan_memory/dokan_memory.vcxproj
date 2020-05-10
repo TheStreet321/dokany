@@ -166,18 +166,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DokanMemoryFS.cpp" />
-    <ClCompile Include="dokan_memory.cpp" />
-    <ClCompile Include="FileNode.cpp" />
-    <ClCompile Include="FileNodes.cpp" />
-    <ClCompile Include="MemoryFSOperations.cpp" />
+    <ClCompile Include="memfs.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="filenode.cpp" />
+    <ClCompile Include="filenodes.cpp" />
+    <ClCompile Include="memfs_operations.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DokanMemoryFS.h" />
-    <ClInclude Include="FileNode.h" />
-    <ClInclude Include="FileNodes.h" />
-    <ClInclude Include="MemoryFSHelper.h" />
-    <ClInclude Include="MemoryFSOperations.h" />
+    <ClInclude Include="memfs.h" />
+    <ClInclude Include="filenode.h" />
+    <ClInclude Include="filenodes.h" />
+    <ClInclude Include="memfs_helper.h" />
+    <ClInclude Include="memfs_operations.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\dokan\dokan.vcxproj">
