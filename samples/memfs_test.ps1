@@ -31,40 +31,41 @@ $Configs = @(
 )
 
 $ifstestParameters = @(
-	#"-t", "FileNameLengthTest",            # reason: buffer overflow in mirror. Issue #511
+	#"-t", "FileNameLengthTest",           # reason: buffer overflow in mirror. Issue #511
 	"-t", "EndOfFileInformationTest",      # reason: IFSTest crashes 😲. Issue #546
-	"-t", "SimpleRenameInformationTest"    # reason: Issue #566
-	"-t", "AVChangeLogTest"                # reason: Part of ChangeJournal
-	"-t", "MountedDirtyTest"               # reason: Need a reboot to see the result
-	"-t", "SetCompressionTest"             # reason: Compression is not enable
-	"-t", "FileOpenByIDTest"               # reason: FILE_OPEN_BY_FILE_ID not supported
-	"-t", "OpenVolumeTest"                 # reason: We do not have FCB for \ to count open
-	"-t", "CaseSensitiveTest"              # reason: NTFS and CreateFile is not case sensitive by default
-	"-t", "ShortFileNameTest"              # reason: shortname not supported
-	"-t", "TunnelingTest"                  # reason: shortname not supported
-	"-t", "CompressionInformationTest"     # reason: compression not supported
-	"-t", "LinkInformationTest"            # reason: file link not supported
-	"-t", "StreamStandardInformationTest"  # reason: file link not supported
-	"-t", "AlternateNameInformationTest"   # reason: alternate name not supported
-	"-t", "HardLinkInformationTest"        # reason: hard link not supported
-	"-t", "EaInformationTest"              # reason: extended file attributes not supported
-	"-t", "FullDirectoryInformationTest"   # reason: Fail because extended attributes is incorrect
-	"-t", "CreatePagingFileTest"           # reason: Paging files are not supported
+	"-t", "SimpleRenameInformationTest",   # reason: Issue #566
+	"-t", "AVChangeLogTest",               # reason: Part of ChangeJournal
+	"-t", "MountedDirtyTest",              # reason: Need a reboot to see the result
+	"-t", "SetCompressionTest",            # reason: Compression is not enable
+	"-t", "FileOpenByIDTest",              # reason: FILE_OPEN_BY_FILE_ID not supported
+	"-t", "OpenVolumeTest",                # reason: We do not have FCB for \ to count open
+	"-t", "CaseSensitiveTest",             # reason: NTFS and CreateFile is not case sensitive by default
+	"-t", "ShortFileNameTest",             # reason: shortname not supported
+	"-t", "TunnelingTest",                 # reason: shortname not supported
+	"-t", "CompressionInformationTest",    # reason: compression not supported
+	"-t", "LinkInformationTest",           # reason: file link not supported
+	"-t", "StreamStandardInformationTest", # reason: file link not supported
+	"-t", "AlternateNameInformationTest",  # reason: alternate name not supported
+	"-t", "HardLinkInformationTest",       # reason: hard link not supported
+	"-t", "EaInformationTest",             # reason: extended file attributes not supported
+	"-t", "FullDirectoryInformationTest",  # reason: Fail because extended attributes is incorrect
+	"-t", "CreatePagingFileTest",          # reason: Paging files are not supported
+	"-g", "Security",                      # reason: Memfs is not really supporting ACL
 	#Disable not supported features
-	"-g", "ChangeJournal"
-	"-g", "Virus"
-	"-g", "DefragEnhancements"
-	"-g", "Quotas"
-	"-g", "Encryption"
-	"-g", "ObjectId"
-	"-g", "MountPoints"
-	"-g", "ReparsePoints"
-	"-g", "SparseFiles"
-	"-g", "EaInformation"
-	"-g", "FileSystemControlGeneral"       # reason: Retrieval Pointers fsctl not supported
+	"-g", "ChangeJournal",
+	"-g", "Virus",
+	"-g", "DefragEnhancements",
+	"-g", "Quotas",
+	"-g", "Encryption",
+	"-g", "ObjectId",
+	"-g", "MountPoints",
+	"-g", "ReparsePoints",
+	"-g", "SparseFiles",
+	"-g", "EaInformation",
+	"-g", "FileSystemControlGeneral",      # reason: Retrieval Pointers fsctl not supported
 	"/v",                                  # verbose output
-	"/d", "\Device\Dokan_1"                # Dokan device named need for FileSystemDeviceOpenTest
-	"/r", "$fsTestPath2"                   # SimpleRenameInformationTest need an extra volum
+	"/d", "\Device\Dokan_1",               # Dokan device named need for FileSystemDeviceOpenTest
+	"/r", "$fsTestPath2",                  # SimpleRenameInformationTest need an extra volum
 	"/u", $ifstest_user,
 	"/U", $ifstest_pass
 )
