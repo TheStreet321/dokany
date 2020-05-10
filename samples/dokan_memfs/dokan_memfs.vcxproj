@@ -22,7 +22,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{07E55DA5-7237-465A-8338-0B582452CC78}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>dokanmemory</RootNamespace>
+    <RootNamespace>dokan_memfs</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>dokan_memfs</ProjectName>
   </PropertyGroup>
