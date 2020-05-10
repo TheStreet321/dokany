@@ -1,6 +1,31 @@
+/*
+  Dokan : user-mode file system library for Windows
+
+  Copyright (C) 2019 Adrien J. <liryna.stark@gmail.com>
+  Copyright (C) 2020 Google, Inc.
+
+  http://dokan-dev.github.io
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
 #include "memfs_operations.h"
-#include "filenode.h"
-#include "filenodes.h"
 #include "memfs_helper.h"
 
 #include <sddl.h>
@@ -17,7 +42,8 @@ static const DWORD g_volumserial = 0x19831116;
 static NTSTATUS create_main_stream(
     fs_filenodes* fs_filenodes, std::wstring filename,
     std::pair<std::wstring, std::wstring> stream_names,
-    DWORD file_attributes_and_flags, PDOKAN_IO_SECURITY_CONTEXT security_context) {
+    DWORD file_attributes_and_flags,
+    PDOKAN_IO_SECURITY_CONTEXT security_context) {
   // When creating a new a alternated stream, we need to be sure
   // the main stream exist otherwise we create it.
   auto main_stream_name =
@@ -43,7 +69,8 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
 
   DokanMapKernelToUserCreateFileFlags(
       desiredaccess, fileattributes, createoptions, createdisposition,
-      &generic_desiredaccess, &file_attributes_and_flags, &creation_disposition);
+      &generic_desiredaccess, &file_attributes_and_flags,
+      &creation_disposition);
 
   auto filename_str = std::wstring(filename);
   // Remove $DATA stream if exist as it is the default / main stream.
@@ -54,8 +81,7 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
   auto f = filenodes->find(filename_str);
   auto stream_names = fs_filenodes::get_stream_names(filename_str);
 
-  spdlog::info(L"CreateFile: {} with node: {}", filename_str,
-               (f != nullptr));
+  spdlog::info(L"CreateFile: {} with node: {}", filename_str, (f != nullptr));
 
   // Windows will automatically try to create and access different system
   // directories
@@ -94,11 +120,11 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
     spdlog::info(L"CreateFile: {} is a File", filename_str);
 
     if (f && (((!(file_attributes_and_flags & FILE_ATTRIBUTE_HIDDEN) &&
-                       (f->attributes & FILE_ATTRIBUTE_HIDDEN)) ||
-                      (!(file_attributes_and_flags & FILE_ATTRIBUTE_SYSTEM) &&
-                       (f->attributes & FILE_ATTRIBUTE_SYSTEM))) &&
-                     (creation_disposition == TRUNCATE_EXISTING ||
-                      creation_disposition == CREATE_ALWAYS)))
+                (f->attributes & FILE_ATTRIBUTE_HIDDEN)) ||
+               (!(file_attributes_and_flags & FILE_ATTRIBUTE_SYSTEM) &&
+                (f->attributes & FILE_ATTRIBUTE_SYSTEM))) &&
+              (creation_disposition == TRUNCATE_EXISTING ||
+               creation_disposition == CREATE_ALWAYS)))
       return STATUS_ACCESS_DENIED;
 
     if ((f && (f->attributes & FILE_ATTRIBUTE_READONLY) ||
@@ -123,8 +149,9 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
         if (!stream_names.second.empty()) {
           // The createfile is a alternate stream,
           // we need to be sure main stream exist
-          auto n = create_main_stream(filenodes, filename_str, stream_names,
-                                      file_attributes_and_flags, security_context);
+          auto n =
+              create_main_stream(filenodes, filename_str, stream_names,
+                                 file_attributes_and_flags, security_context);
           if (n != STATUS_SUCCESS) return n;
         }
 
@@ -149,8 +176,9 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
         if (!stream_names.second.empty()) {
           // The createfile is a alternate stream,
           // we need to be sure main stream exist
-          auto n = create_main_stream(filenodes, filename_str, stream_names,
-                                      file_attributes_and_flags, security_context);
+          auto n =
+              create_main_stream(filenodes, filename_str, stream_names,
+                                 file_attributes_and_flags, security_context);
           if (n != STATUS_SUCCESS) return n;
         }
 
@@ -165,7 +193,8 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
          */
         if (!f) {
           auto n = filenodes->add(std::make_shared<filenode>(
-              filename_str, false, file_attributes_and_flags, security_context));
+              filename_str, false, file_attributes_and_flags,
+              security_context));
           if (n != STATUS_SUCCESS) return n;
         }
       } break;
@@ -197,8 +226,8 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
    * If the specified file exists, the function fails and the last-error code is
    * set to ERROR_FILE_EXISTS
    */
-  if (f &&
-      (creation_disposition == CREATE_NEW || creation_disposition == OPEN_ALWAYS))
+  if (f && (creation_disposition == CREATE_NEW ||
+            creation_disposition == OPEN_ALWAYS))
     return STATUS_OBJECT_NAME_COLLISION;
 
   return STATUS_SUCCESS;
@@ -274,12 +303,14 @@ static NTSTATUS DOKAN_CALLBACK memfs_writefile(LPCWSTR filename, LPCVOID buffer,
         number_of_bytes_to_write = static_cast<DWORD>(bytes);
       }
     }
-    spdlog::info(L"\tPagingIo number_of_bytes_to_write: {}", number_of_bytes_to_write);
+    spdlog::info(L"\tPagingIo number_of_bytes_to_write: {}",
+                 number_of_bytes_to_write);
   }
 
   *number_of_bytes_written = f->write(buffer, number_of_bytes_to_write, offset);
-  spdlog::info(L"\tNumberOfBytesToWrite {} offset: {} number_of_bytes_written: {}",
-               number_of_bytes_to_write, offset, *number_of_bytes_written);
+  spdlog::info(
+      L"\tNumberOfBytesToWrite {} offset: {} number_of_bytes_written: {}",
+      number_of_bytes_to_write, offset, *number_of_bytes_written);
   return STATUS_SUCCESS;
 }
 
@@ -301,17 +332,14 @@ memfs_getfileInformation(LPCWSTR filename, LPBY_HANDLE_FILE_INFORMATION buffer,
   auto f = filenodes->find(filename_str);
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
   buffer->dwFileAttributes = f->attributes;
-  memfs_helper::LlongToFileTime(f->times.creation,
-                                  buffer->ftCreationTime);
-  memfs_helper::LlongToFileTime(f->times.lastaccess,
-                                  buffer->ftLastAccessTime);
-  memfs_helper::LlongToFileTime(f->times.lastwrite,
-                                  buffer->ftLastWriteTime);
+  memfs_helper::LlongToFileTime(f->times.creation, buffer->ftCreationTime);
+  memfs_helper::LlongToFileTime(f->times.lastaccess, buffer->ftLastAccessTime);
+  memfs_helper::LlongToFileTime(f->times.lastwrite, buffer->ftLastWriteTime);
   auto strLength = f->get_filesize();
   memfs_helper::LlongToDwLowHigh(strLength, buffer->nFileSizeLow,
-                                   buffer->nFileSizeHigh);
+                                 buffer->nFileSizeHigh);
   memfs_helper::LlongToDwLowHigh(f->fileindex, buffer->nFileIndexLow,
-                                   buffer->nFileIndexHigh);
+                                 buffer->nFileIndexHigh);
   // We do not track the number of links to the file so we return a fake value.
   buffer->nNumberOfLinks = 1;
   buffer->dwVolumeSerialNumber = g_volumserial;
@@ -320,9 +348,9 @@ memfs_getfileInformation(LPCWSTR filename, LPBY_HANDLE_FILE_INFORMATION buffer,
       L"GetFileInformation: {} Attributes: {:x} Times: Creation {:x} "
       L"LastAccess {:x} LastWrite {:x} FileSize {} NumberOfLinks {} "
       L"VolumeSerialNumber {:x}",
-      filename_str, f->attributes, f->times.creation,
-      f->times.lastaccess, f->times.lastwrite, strLength,
-      buffer->nNumberOfLinks, buffer->dwVolumeSerialNumber);
+      filename_str, f->attributes, f->times.creation, f->times.lastaccess,
+      f->times.lastwrite, strLength, buffer->nNumberOfLinks,
+      buffer->dwVolumeSerialNumber);
 
   return STATUS_SUCCESS;
 }
@@ -343,21 +371,18 @@ static NTSTATUS DOKAN_CALLBACK memfs_findfiles(LPCWSTR filename,
     std::copy(fileName.begin(), fileName.end(), std::begin(findData.cFileName));
     findData.cFileName[fileName.length()] = '\0';
     findData.dwFileAttributes = f->attributes;
-    memfs_helper::LlongToFileTime(f->times.creation,
-                                    findData.ftCreationTime);
+    memfs_helper::LlongToFileTime(f->times.creation, findData.ftCreationTime);
     memfs_helper::LlongToFileTime(f->times.lastaccess,
-                                    findData.ftLastAccessTime);
-    memfs_helper::LlongToFileTime(f->times.lastwrite,
-                                    findData.ftLastWriteTime);
+                                  findData.ftLastAccessTime);
+    memfs_helper::LlongToFileTime(f->times.lastwrite, findData.ftLastWriteTime);
     auto file_size = f->get_filesize();
     memfs_helper::LlongToDwLowHigh(file_size, findData.nFileSizeLow,
-                                     findData.nFileSizeHigh);
+                                   findData.nFileSizeHigh);
     spdlog::info(
         L"FindFiles: {} fileNode: {} Attributes: {} Times: Creation {} "
         L"LastAccess {} LastWrite {} FileSize {}",
         filename_str, fileNodeName, findData.dwFileAttributes,
-        f->times.creation, f->times.lastaccess,
-        f->times.lastwrite, file_size);
+        f->times.creation, f->times.lastaccess, f->times.lastwrite, file_size);
     fill_finddata(&findData, dokanfileinfo);
   }
   return STATUS_SUCCESS;
@@ -402,8 +427,7 @@ memfs_setfiletime(LPCWSTR filename, CONST FILETIME* creationtime,
   if (creationtime && !filetimes::isEmpty(creationtime))
     f->times.creation = memfs_helper::FileTimeToLlong(*creationtime);
   if (lastaccesstime && !filetimes::isEmpty(lastaccesstime))
-    f->times.lastaccess =
-        memfs_helper::FileTimeToLlong(*lastaccesstime);
+    f->times.lastaccess = memfs_helper::FileTimeToLlong(*lastaccesstime);
   if (lastwritetime && !filetimes::isEmpty(lastwritetime))
     f->times.lastwrite = memfs_helper::FileTimeToLlong(*lastwritetime);
   return STATUS_SUCCESS;
@@ -482,8 +506,8 @@ static NTSTATUS DOKAN_CALLBACK memfs_lockfile(LPCWSTR filename,
                                               PDOKAN_FILE_INFO dokanfileinfo) {
   auto filenodes = GET_FS_INSTANCE;
   auto filename_str = std::wstring(filename);
-  spdlog::info(L"LockFile: {} ByteOffset {} Length {}", filename_str, byte_offset,
-               length);
+  spdlog::info(L"LockFile: {} ByteOffset {} Length {}", filename_str,
+               byte_offset, length);
   return STATUS_NOT_IMPLEMENTED;
 }
 
@@ -502,17 +526,16 @@ static NTSTATUS DOKAN_CALLBACK memfs_getdiskfreespace(
     PULONGLONG total_number_of_free_bytes, PDOKAN_FILE_INFO dokanfileinfo) {
   spdlog::info(L"GetDiskFreeSpace");
   *free_bytes_available = (ULONGLONG)(512 * 1024 * 1024);
-  *total_number_of_bytes =
-      MAXLONGLONG;
+  *total_number_of_bytes = MAXLONGLONG;
   *total_number_of_free_bytes = MAXLONGLONG;
   return STATUS_SUCCESS;
 }
 
 static NTSTATUS DOKAN_CALLBACK memfs_getvolumeinformation(
-    LPWSTR volumename_buffer, DWORD volumename_size, LPDWORD volume_serialnumber,
-    LPDWORD maximum_component_length, LPDWORD filesystem_flags,
-    LPWSTR filesystem_name_buffer, DWORD filesystem_name_size,
-    PDOKAN_FILE_INFO dokanfileinfo) {
+    LPWSTR volumename_buffer, DWORD volumename_size,
+    LPDWORD volume_serialnumber, LPDWORD maximum_component_length,
+    LPDWORD filesystem_flags, LPWSTR filesystem_name_buffer,
+    DWORD filesystem_name_size, PDOKAN_FILE_INFO dokanfileinfo) {
   spdlog::info(L"GetVolumeInformation");
   wcscpy_s(volumename_buffer, volumename_size, L"Dokan MemFS");
   *volume_serialnumber = g_volumserial;
@@ -592,7 +615,8 @@ static NTSTATUS DOKAN_CALLBACK memfs_setfilesecurity(
   auto filename_str = std::wstring(filename);
   spdlog::info(L"SetFileSecurity: {}", filename_str);
   static GENERIC_MAPPING memfs_mapping = {FILE_GENERIC_READ, FILE_GENERIC_WRITE,
-                                         FILE_GENERIC_EXECUTE, FILE_ALL_ACCESS};
+                                          FILE_GENERIC_EXECUTE,
+                                          FILE_ALL_ACCESS};
   auto f = filenodes->find(filename_str);
 
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
@@ -667,7 +691,7 @@ memfs_findstreams(LPCWSTR filename, PFillFindStreamData fill_findstreamdata,
         std::begin(stream_data.cStreamName) + stream_names.second.length() + 1);
     stream_data.cStreamName[0] = ':';
     stream_data.cStreamName[stream_names.second.length() +
-                           g_data_stream_name.length() + 1] = '\0';
+                            g_data_stream_name.length() + 1] = '\0';
     stream_data.StreamSize.QuadPart = stream.second->get_filesize();
     spdlog::info(L"FindStreams: {} StreamName: {} Size: {:x}", filename_str,
                  stream_names.second, stream_data.StreamSize.QuadPart);

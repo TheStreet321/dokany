@@ -1,3 +1,30 @@
+/*
+  Dokan : user-mode file system library for Windows
+
+  Copyright (C) 2019 Adrien J. <liryna.stark@gmail.com>
+  Copyright (C) 2020 Google, Inc.
+
+  http://dokan-dev.github.io
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
 #include "filenodes.h"
 
 #include <sddl.h>
@@ -135,8 +162,7 @@ void fs_filenodes::remove(const std::shared_ptr<filenode>& f) {
 
   // Remove node from fileNodes and directoryPaths
   _filenodes.erase(fileName);
-  _directoryPaths[std::filesystem::path(fileName).parent_path()].erase(
-      f);
+  _directoryPaths[std::filesystem::path(fileName).parent_path()].erase(f);
 
   // if it was a directory we need to remove it from directoryPaths
   if (f->is_directory) {
@@ -160,8 +186,9 @@ void fs_filenodes::remove(const std::shared_ptr<filenode>& f) {
   }
 }
 
-NTSTATUS fs_filenodes::move(std::wstring old_filename, std::wstring new_filename,
-                         BOOL replace_if_existing) {
+NTSTATUS fs_filenodes::move(std::wstring old_filename,
+                            std::wstring new_filename,
+                            BOOL replace_if_existing) {
   auto f = find(old_filename);
   auto new_f = find(new_filename);
 
