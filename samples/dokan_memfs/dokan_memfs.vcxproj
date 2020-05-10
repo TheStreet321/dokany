@@ -361,6 +361,6 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <PropertyGroup>
-    <CAExcludePath>.\spdlog</CAExcludePath>
+    <CAExcludePath>$(CAExcludePath);.\spdlog\include</CAExcludePath>
   </PropertyGroup>
 </Project>

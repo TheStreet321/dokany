@@ -41,7 +41,7 @@ namespace memfs {
 class memfs {
  public:
   memfs() = default;
-  // Start the memory filesysteù
+  // Start the memory filesystem
   void run();
   // Unmount the device when destructor is called
   virtual ~memfs();
