@@ -34,7 +34,7 @@ filenode::filenode(std::wstring filename, bool is_directory, DWORD file_attr,
                    PDOKAN_IO_SECURITY_CONTEXT security_context)
     : _fileName(filename), is_directory(is_directory), attributes(file_attr) {
   // No lock need, FileNode is still not in a directory
-  times.Reset();
+  times.reset();
 
   if (security_context && security_context->AccessState.SecurityDescriptor) {
     spdlog::info(L"{} : Attach SecurityDescriptor", filename);

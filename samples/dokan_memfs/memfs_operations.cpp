@@ -308,6 +308,9 @@ static NTSTATUS DOKAN_CALLBACK memfs_writefile(LPCWSTR filename, LPCVOID buffer,
   }
 
   *number_of_bytes_written = f->write(buffer, number_of_bytes_to_write, offset);
+  if (*number_of_bytes_written) {
+    f->times.lastwrite = filetimes::get_currenttime();
+  }
   spdlog::info(
       L"\tNumberOfBytesToWrite {} offset: {} number_of_bytes_written: {}",
       number_of_bytes_to_write, offset, *number_of_bytes_written);
@@ -424,11 +427,11 @@ memfs_setfiletime(LPCWSTR filename, CONST FILETIME* creationtime,
   auto f = filenodes->find(filename_str);
   spdlog::info(L"SetFileTime: {}", filename_str);
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
-  if (creationtime && !filetimes::isEmpty(creationtime))
+  if (creationtime && !filetimes::empty(creationtime))
     f->times.creation = memfs_helper::FileTimeToLlong(*creationtime);
-  if (lastaccesstime && !filetimes::isEmpty(lastaccesstime))
+  if (lastaccesstime && !filetimes::empty(lastaccesstime))
     f->times.lastaccess = memfs_helper::FileTimeToLlong(*lastaccesstime);
-  if (lastwritetime && !filetimes::isEmpty(lastwritetime))
+  if (lastwritetime && !filetimes::empty(lastwritetime))
     f->times.lastwrite = memfs_helper::FileTimeToLlong(*lastwritetime);
   return STATUS_SUCCESS;
 }

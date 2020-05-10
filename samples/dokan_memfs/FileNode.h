@@ -60,15 +60,18 @@ struct security_informations : std::mutex {
 };
 
 struct filetimes {
-  void Reset() {
-    FILETIME t;
-    GetSystemTimeAsFileTime(&t);
-    lastaccess = lastwrite = creation =
-        memfs_helper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
+  void reset() {
+    lastaccess = lastwrite = creation = get_currenttime();
   }
 
-  static bool isEmpty(CONST FILETIME* filetime) {
+  static bool empty(CONST FILETIME* filetime) {
     return filetime->dwHighDateTime == 0 && filetime->dwLowDateTime == 0;
+  }
+
+  static LONGLONG get_currenttime() {
+    FILETIME t;
+    GetSystemTimeAsFileTime(&t);
+    return memfs_helper::DDwLowHighToLlong(t.dwLowDateTime, t.dwHighDateTime);
   }
 
   std::atomic<LONGLONG> creation;
