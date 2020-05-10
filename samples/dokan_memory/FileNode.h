@@ -48,6 +48,11 @@ struct filetimes {
   std::atomic<LONGLONG> lastwrite;
 };
 
+// Memfs file context
+// Each file/directory on the memfs has his own filenode instance
+// Alternated streams are also filenode where the main stream \myfile::$DATA
+// has all the alternated streams (e.g. \myfile:foo:$DATA) attached to him
+// and the alternated has main_stream assigned to the main stream filenode.
 class filenode {
  public:
   filenode(std::wstring filename, bool is_directory, DWORD file_attr,
@@ -61,19 +66,20 @@ class filenode {
   const LONGLONG get_filesize();
   void set_endoffile(const LONGLONG& byte_offset);
 
-  // FileName change during move
+  // Filename can during a move so we need to protect it behind a lock
   const std::wstring get_filename();
   void set_filename(const std::wstring& filename);
 
+  // Alternated streams
   void add_stream(std::shared_ptr<filenode> stream);
   void remove_stream(std::shared_ptr<filenode> stream);
   std::unordered_map<std::wstring, std::shared_ptr<filenode> > get_streams();
 
   // No lock needed above
   std::atomic<bool> is_directory = false;
-  std::shared_ptr<filenode> main_stream;
   std::atomic<DWORD> attributes = 0;
   LONGLONG fileindex = 0;
+  std::shared_ptr<filenode> main_stream;
 
   filetimes times;
   security_informations security;

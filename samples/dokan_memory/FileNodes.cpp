@@ -235,12 +235,17 @@ NTSTATUS fs_filenodes::move(std::wstring old_filename, std::wstring new_filename
 
 std::pair<std::wstring, std::wstring> fs_filenodes::get_stream_names(
     std::wstring filename) {
+  // real_fileName - foo or foo:bar
   const auto real_fileName =
       std::filesystem::path(filename).filename().wstring();
   auto stream_pos = real_fileName.find(L":");
+  // foo does not have alternated stream, return an empty alternated stream.
   if (stream_pos == std::string::npos)
     return std::pair<std::wstring, std::wstring>(real_fileName, std::wstring());
 
+  // foo:bar has an alternated stream
+  // return first the file name and second the file stream name
+  // first: foo - second: bar
   const auto main_stream = real_fileName.substr(0, stream_pos);
   ++stream_pos;
   const auto alternate_stream =

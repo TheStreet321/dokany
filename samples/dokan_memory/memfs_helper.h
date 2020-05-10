@@ -3,6 +3,7 @@
 #include <windows.h>
 
 namespace memfs {
+// Memfs helpers
 class memfs_helper {
  public:
   static inline LONGLONG FileTimeToLlong(const FILETIME& f) {

@@ -12,11 +12,14 @@
 
 namespace memfs {
 static const std::wstring g_data_stream_name = std::wstring(L":$DATA");
+static const DWORD g_volumserial = 0x19831116;
 
 static NTSTATUS create_main_stream(
     fs_filenodes* fs_filenodes, std::wstring filename,
     std::pair<std::wstring, std::wstring> stream_names,
     DWORD file_attributes_and_flags, PDOKAN_IO_SECURITY_CONTEXT security_context) {
+  // When creating a new a alternated stream, we need to be sure
+  // the main stream exist otherwise we create it.
   auto main_stream_name =
       std::filesystem::path(filename).parent_path().wstring() +
       stream_names.first;
@@ -207,6 +210,7 @@ static void DOKAN_CALLBACK memfs_cleanup(LPCWSTR filename,
   auto filename_str = std::wstring(filename);
   spdlog::info(L"Cleanup: {}", filename_str);
   if (dokanfileinfo->DeleteOnClose) {
+    // Delete happens during cleanup and not in close event.
     spdlog::info(L"\tDeleteOnClose: {}", filename_str);
     filenodes->remove(filename_str);
   }
@@ -216,6 +220,7 @@ static void DOKAN_CALLBACK memfs_closeFile(LPCWSTR filename,
                                            PDOKAN_FILE_INFO dokanfileinfo) {
   auto filenodes = GET_FS_INSTANCE;
   auto filename_str = std::wstring(filename);
+  // Here we should release all resources from the createfile context if we had.
   spdlog::info(L"CloseFile: {}", filename_str);
 }
 
@@ -247,21 +252,22 @@ static NTSTATUS DOKAN_CALLBACK memfs_writefile(LPCWSTR filename, LPCVOID buffer,
   auto f = filenodes->find(filename_str);
   if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
-  auto fileSize = f->get_filesize();
+  auto file_size = f->get_filesize();
 
   if (dokanfileinfo->PagingIo) {
     // PagingIo cannot extend file size.
     // We return STATUS_SUCCESS when offset is beyond fileSize
     // and write the maximum we are allowed to.
-    if (offset >= fileSize) {
+    if (offset >= file_size) {
       spdlog::info(L"\tPagingIo Outside offset: {} FileSize: {}", offset,
-                   fileSize);
+                   file_size);
       *number_of_bytes_written = 0;
       return STATUS_SUCCESS;
     }
 
-    if ((offset + number_of_bytes_to_write) > fileSize) {
-      LONGLONG bytes = fileSize - offset;
+    if ((offset + number_of_bytes_to_write) > file_size) {
+      // resize the write length to not go beyond file size.
+      LONGLONG bytes = file_size - offset;
       if (bytes >> 32) {
         number_of_bytes_to_write = static_cast<DWORD>(bytes & 0xFFFFFFFFUL);
       } else {
@@ -282,6 +288,7 @@ memfs_flushfilebuffers(LPCWSTR filename, PDOKAN_FILE_INFO dokanfileinfo) {
   auto filenodes = GET_FS_INSTANCE;
   auto filename_str = std::wstring(filename);
   spdlog::info(L"FlushFileBuffers: {}", filename_str);
+  // Nothing to flush, we directly write the content into our buffer.
   return STATUS_SUCCESS;
 }
 
@@ -305,8 +312,9 @@ memfs_getfileInformation(LPCWSTR filename, LPBY_HANDLE_FILE_INFORMATION buffer,
                                    buffer->nFileSizeHigh);
   memfs_helper::LlongToDwLowHigh(f->fileindex, buffer->nFileIndexLow,
                                    buffer->nFileIndexHigh);
+  // We do not track the number of links to the file so we return a fake value.
   buffer->nNumberOfLinks = 1;
-  buffer->dwVolumeSerialNumber = 0x19831116;
+  buffer->dwVolumeSerialNumber = g_volumserial;
 
   spdlog::info(
       L"GetFileInformation: {} Attributes: {:x} Times: Creation {:x} "
@@ -341,15 +349,15 @@ static NTSTATUS DOKAN_CALLBACK memfs_findfiles(LPCWSTR filename,
                                     findData.ftLastAccessTime);
     memfs_helper::LlongToFileTime(f->times.lastwrite,
                                     findData.ftLastWriteTime);
-    auto strLength = f->get_filesize();
-    memfs_helper::LlongToDwLowHigh(strLength, findData.nFileSizeLow,
+    auto file_size = f->get_filesize();
+    memfs_helper::LlongToDwLowHigh(file_size, findData.nFileSizeLow,
                                      findData.nFileSizeHigh);
     spdlog::info(
         L"FindFiles: {} fileNode: {} Attributes: {} Times: Creation {} "
         L"LastAccess {} LastWrite {} FileSize {}",
         filename_str, fileNodeName, findData.dwFileAttributes,
         f->times.creation, f->times.lastaccess,
-        f->times.lastwrite, strLength);
+        f->times.lastwrite, file_size);
     fill_finddata(&findData, dokanfileinfo);
   }
   return STATUS_SUCCESS;
@@ -507,7 +515,7 @@ static NTSTATUS DOKAN_CALLBACK memfs_getvolumeinformation(
     PDOKAN_FILE_INFO dokanfileinfo) {
   spdlog::info(L"GetVolumeInformation");
   wcscpy_s(volumename_buffer, volumename_size, L"Dokan MemFS");
-  *volume_serialnumber = 0x19831116;
+  *volume_serialnumber = g_volumserial;
   *maximum_component_length = 255;
   *filesystem_flags = FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES |
                       FILE_SUPPORTS_REMOTE_STORAGE | FILE_UNICODE_ON_DISK |
@@ -631,7 +639,7 @@ memfs_findstreams(LPCWSTR filename, PFillFindStreamData fill_findstreamdata,
   ZeroMemory(&stream_data, sizeof(WIN32_FIND_STREAM_DATA));
 
   if (!f->is_directory) {
-    // Add the main stream name
+    // Add the main stream name - \foo::$DATA by returning ::$DATA
     std::copy(g_data_stream_name.begin(), g_data_stream_name.end(),
               std::begin(stream_data.cStreamName) + 1);
     stream_data.cStreamName[0] = ':';
@@ -644,13 +652,16 @@ memfs_findstreams(LPCWSTR filename, PFillFindStreamData fill_findstreamdata,
   }
 
   // Add the alternated stream attached
+  // for \foo:bar we need to return in the form of bar:$DATA
   for (const auto& stream : streams) {
     auto stream_names = fs_filenodes::get_stream_names(stream.first);
     if (stream_names.second.length() + g_data_stream_name.length() + 1 >
         sizeof(stream_data.cStreamName))
       continue;
+    // Copy the filename foo
     std::copy(stream_names.second.begin(), stream_names.second.end(),
               std::begin(stream_data.cStreamName) + 1);
+    // Concat :$DATA
     std::copy(
         g_data_stream_name.begin(), g_data_stream_name.end(),
         std::begin(stream_data.cStreamName) + stream_names.second.length() + 1);
