@@ -146,9 +146,17 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
         desiredaccess & FILE_WRITE_DATA)
       return STATUS_ACCESS_DENIED;
 
+    // Cannot overwrite an existing read only file.
+    if ((creation_disposition == CREATE_NEW ||
+         creation_disposition == CREATE_ALWAYS ||
+         creation_disposition == TRUNCATE_EXISTING) &&
+        f && (f->attributes & FILE_ATTRIBUTE_READONLY))
+      return STATUS_ACCESS_DENIED;
+
     if (creation_disposition == CREATE_NEW ||
         creation_disposition == CREATE_ALWAYS ||
-        creation_disposition == OPEN_ALWAYS) {
+        creation_disposition == OPEN_ALWAYS ||
+        creation_disposition == TRUNCATE_EXISTING) {
       // Combines the file attributes and flags specified by
       // dwFlagsAndAttributes with FILE_ATTRIBUTE_ARCHIVE.
       file_attributes_and_flags |= FILE_ATTRIBUTE_ARCHIVE;
@@ -167,10 +175,6 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
         /*
          * Creates a new file, always.
          */
-
-        // Cannot overwrite an existing read only file.
-        if (f && (f->attributes & FILE_ATTRIBUTE_READONLY))
-          return STATUS_ACCESS_DENIED;
 
         if (!stream_names.second.empty()) {
           // The createfile is a alternate stream,
@@ -244,7 +248,7 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
         if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
         f->set_endoffile(0);
-        f->attributes = FILE_ATTRIBUTE_ARCHIVE;
+        f->attributes = file_attributes_and_flags;
       } break;
     }
   }
