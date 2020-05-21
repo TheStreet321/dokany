@@ -248,6 +248,10 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
         if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
         f->set_endoffile(0);
+        f->times.lastaccess = f->times.lastwrite = filetimes::get_currenttime();
+        // We do not support it but for FILE_SUPERSEDE we should just set the
+        // new attributes and not merge with the existing file attributes like
+        // TRUNCATE_EXISTING.
         f->attributes = file_attributes_and_flags;
       } break;
     }
@@ -315,6 +319,8 @@ static NTSTATUS DOKAN_CALLBACK memfs_writefile(LPCWSTR filename, LPCVOID buffer,
 
   auto file_size = f->get_filesize();
 
+  if (offset == -1) offset = file_size;
+
   if (dokanfileinfo->PagingIo) {
     // PagingIo cannot extend file size.
     // We return STATUS_SUCCESS when offset is beyond fileSize
@@ -340,9 +346,7 @@ static NTSTATUS DOKAN_CALLBACK memfs_writefile(LPCWSTR filename, LPCVOID buffer,
   }
 
   *number_of_bytes_written = f->write(buffer, number_of_bytes_to_write, offset);
-  if (*number_of_bytes_written) {
-    f->times.lastwrite = filetimes::get_currenttime();
-  }
+
   spdlog::info(
       L"\tNumberOfBytesToWrite {} offset: {} number_of_bytes_written: {}",
       number_of_bytes_to_write, offset, *number_of_bytes_written);
@@ -354,7 +358,12 @@ memfs_flushfilebuffers(LPCWSTR filename, PDOKAN_FILE_INFO dokanfileinfo) {
   auto filenodes = GET_FS_INSTANCE;
   auto filename_str = std::wstring(filename);
   spdlog::info(L"FlushFileBuffers: {}", filename_str);
+  auto f = filenodes->find(filename_str);
   // Nothing to flush, we directly write the content into our buffer.
+
+  if (f->main_stream) f = f->main_stream;
+  f->times.lastaccess = f->times.lastwrite = filetimes::get_currenttime();
+
   return STATUS_SUCCESS;
 }
 
@@ -465,6 +474,7 @@ memfs_setfiletime(LPCWSTR filename, CONST FILETIME* creationtime,
     f->times.lastaccess = memfs_helper::FileTimeToLlong(*lastaccesstime);
   if (lastwritetime && !filetimes::empty(lastwritetime))
     f->times.lastwrite = memfs_helper::FileTimeToLlong(*lastwritetime);
+  // We should update Change Time here but dokan use lastwritetime for both.
   return STATUS_SUCCESS;
 }
 

@@ -31,21 +31,21 @@ THE SOFTWARE.
 
 void show_usage() {
   // clang-format off
-  fprintf(stderr, "memfs.exe - Dokan Memory filesystem that can be mounted as a local or network drive.\n"
-          "  /l MountPoint (ex. /l m)\t\t\t Mount point. Can be M:\\ (drive letter) or empty NTFS folder C:\\mount\\dokan .\n"
-          "  /m (use removable drive)\t\t\t Show device as removable media.\n"
-          "  /c (mount for current session only)\t\t Device only visible for current user session.\n"
-          "  /n (use network drive)\t\t\t Show device as network device.\n"
-          "  /u (UNC provider name ex. \\localhost\\myfs)\t UNC name used for network volume.\n"
-          "  /t ThreadCount (ex. /t 5)\t\t\t Number of threads to be used internally by Dokan library.\n\t\t\t\t\t\t More threads will handle more event at the same time.\n"
-          "  /d (enable debug output)\t\t\t Enable debug output to an attached debugger.\n"
-          "  /i (Timeout in Milliseconds ex. /i 30000)\t Timeout until a running operation is aborted and the device is unmounted.\n"
-          "Examples:\n"
-          "\tmemfs.exe \t\t\t# Mount as a local filesystem into a drive of letter M:\\.\n"
-          "\tmemfs.exe /l P:\t\t\t# Mount as a local filesystem into a drive of letter P:\\.\n"
-          "\tmirror.exe /l C:\\mount\\dokan\t# Mount into NTFS folder C:\\mount\\dokan.\n"
-          "\tmirror.exe /l M: /n /u \\myfs\\myfs1\t# Mount into a network drive M:\\. with UNC \\\\myfs\\myfs1\n\n"
-          "Unmount the drive with CTRL + C in the console or alternatively via \"dokanctl /u MountPoint\".\n");
+  spdlog::error("memfs.exe - Dokan Memory filesystem that can be mounted as a local or network drive.\n"
+                "  /l MountPoint (ex. /l m)\t\t\t Mount point. Can be M:\\ (drive letter) or empty NTFS folder C:\\mount\\dokan .\n"
+                "  /m (use removable drive)\t\t\t Show device as removable media.\n"
+                "  /c (mount for current session only)\t\t Device only visible for current user session.\n"
+                "  /n (use network drive)\t\t\t Show device as network device.\n"
+                "  /u (UNC provider name ex. \\localhost\\myfs)\t UNC name used for network volume.\n"
+                "  /t ThreadCount (ex. /t 5)\t\t\t Number of threads to be used internally by Dokan library.\n\t\t\t\t\t\t More threads will handle more event at the same time.\n"
+                "  /d (enable debug output)\t\t\t Enable debug output to an attached debugger.\n"
+                "  /i (Timeout in Milliseconds ex. /i 30000)\t Timeout until a running operation is aborted and the device is unmounted.\n"
+                "Examples:\n"
+                "\tmemfs.exe \t\t\t# Mount as a local filesystem into a drive of letter M:\\.\n"
+                "\tmemfs.exe /l P:\t\t\t# Mount as a local filesystem into a drive of letter P:\\.\n"
+                "\tmirror.exe /l C:\\mount\\dokan\t# Mount into NTFS folder C:\\mount\\dokan.\n"
+                "\tmirror.exe /l M: /n /u \\myfs\\myfs1\t# Mount into a network drive M:\\. with UNC \\\\myfs\\myfs1\n\n"
+                "Unmount the drive with CTRL + C in the console or alternatively via \"dokanctl /u MountPoint\".\n");
   // clang-format on
 }
 
