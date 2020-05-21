@@ -123,6 +123,7 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
   } else {
     spdlog::info(L"CreateFile: {} is a File", filename_str);
 
+    // Cannot overwrite an hidden or system file.
     if (f && (((!(file_attributes_and_flags & FILE_ATTRIBUTE_HIDDEN) &&
                 (f->attributes & FILE_ATTRIBUTE_HIDDEN)) ||
                (!(file_attributes_and_flags & FILE_ATTRIBUTE_SYSTEM) &&
@@ -131,24 +132,34 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
                creation_disposition == CREATE_ALWAYS)))
       return STATUS_ACCESS_DENIED;
 
-    // Cannot delete a file with readonly attributes
+    // Cannot delete a file with readonly attributes.
     if ((f && (f->attributes & FILE_ATTRIBUTE_READONLY) ||
          (file_attributes_and_flags & FILE_ATTRIBUTE_READONLY)) &&
         (file_attributes_and_flags & FILE_FLAG_DELETE_ON_CLOSE))
       return STATUS_CANNOT_DELETE;
+
+    // Cannot open a readonly file for writing
+    if ((creation_disposition == OPEN_ALWAYS ||
+         creation_disposition == OPEN_EXISTING ||
+         creation_disposition == TRUNCATE_EXISTING) &&
+        f && (f->attributes & FILE_ATTRIBUTE_READONLY) &&
+        desiredaccess & FILE_WRITE_DATA)
+      return STATUS_ACCESS_DENIED;
 
     if (creation_disposition == CREATE_NEW ||
         creation_disposition == CREATE_ALWAYS ||
         creation_disposition == OPEN_ALWAYS) {
       // Combines the file attributes and flags specified by
       // dwFlagsAndAttributes with FILE_ATTRIBUTE_ARCHIVE.
-      // All other file attributes override FILE_ATTRIBUTE_NORMAL.
-      file_attributes_and_flags &= ~FILE_ATTRIBUTE_NORMAL;
       file_attributes_and_flags |= FILE_ATTRIBUTE_ARCHIVE;
       if (f) file_attributes_and_flags |= f->attributes;
+      // Remove non specific attributes
+      file_attributes_and_flags &= ~FILE_ATTRIBUTE_STRICTLY_SEQUENTIAL;
+      // FILE_ATTRIBUTE_NORMAL is override if any other attribute is set
+      if (file_attributes_and_flags & FILE_ATTRIBUTE_NORMAL &&
+          (file_attributes_and_flags & (file_attributes_and_flags - 1)))
+        file_attributes_and_flags &= ~FILE_ATTRIBUTE_NORMAL;
     }
-    // Remove non specific attributes
-    file_attributes_and_flags &= ~FILE_ATTRIBUTE_STRICTLY_SEQUENTIAL;
 
     switch (creation_disposition) {
       case CREATE_ALWAYS: {
@@ -207,11 +218,6 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
          * Opens a file, always.
          */
 
-        // Cannot open a readonly file for writing
-        if (f && (f->attributes & FILE_ATTRIBUTE_READONLY) &&
-            desiredaccess & FILE_WRITE_DATA)
-          return STATUS_ACCESS_DENIED;
-
         if (!f) {
           auto n = filenodes->add(std::make_shared<filenode>(
               filename_str, false, file_attributes_and_flags,
@@ -227,11 +233,6 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
          * and the last-error code is set to ERROR_FILE_NOT_FOUND
          */
         if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
-
-        // Cannot open a readonly file for writing
-        if ((f->attributes & FILE_ATTRIBUTE_READONLY) &&
-            desiredaccess & FILE_WRITE_DATA)
-          return STATUS_ACCESS_DENIED;
       } break;
       case TRUNCATE_EXISTING: {
         spdlog::info(L"CreateFile: {} TRUNCATE_EXISTING", filename_str);
@@ -241,11 +242,6 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
          * and the last-error code is set to ERROR_FILE_NOT_FOUND
          */
         if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
-
-         // Cannot open a readonly file for writing
-        if ((f->attributes & FILE_ATTRIBUTE_READONLY) &&
-            desiredaccess & FILE_WRITE_DATA)
-          return STATUS_ACCESS_DENIED;
 
         f->set_endoffile(0);
         f->attributes = FILE_ATTRIBUTE_ARCHIVE;
