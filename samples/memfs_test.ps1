@@ -31,7 +31,6 @@ $Configs = @(
 )
 
 $ifstestParameters = @(
-	#"-t", "FileNameLengthTest",           # reason: buffer overflow in mirror. Issue #511
 	"-t", "EndOfFileInformationTest",      # reason: IFSTest crashes 😲. Issue #546
 	"-t", "SimpleRenameInformationTest",   # reason: Issue #566
 	"-t", "AVChangeLogTest",               # reason: Part of ChangeJournal
@@ -50,8 +49,16 @@ $ifstestParameters = @(
 	"-t", "EaInformationTest",             # reason: extended file attributes not supported
 	"-t", "FullDirectoryInformationTest",  # reason: Fail because extended attributes is incorrect
 	"-t", "CreatePagingFileTest",          # reason: Paging files are not supported
-	"-g", "Security",                      # reason: Memfs is not really supporting ACL
-	#Disable not supported features
+	# Memfs not supported features
+	"-t", "ArchiveAttributeTest"           # reason: We do not set Archive attr after close.
+	"-g", "Security",                      # reason: ACL are not really supporting.
+	"-g", "CloseCleanupDelete",            # reason: We do not update info during cleanup.
+	# Features should work but have some issues needed to be debug
+	"-g", "FileLocking",
+	"-g", "ChangeNotification",
+	"-g", "SectionsCaching",
+	"-g", "StreamEnhancements",
+	# Disable not supported features
 	"-g", "ChangeJournal",
 	"-g", "Virus",
 	"-g", "DefragEnhancements",

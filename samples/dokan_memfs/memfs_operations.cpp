@@ -107,6 +107,7 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
 
     if (creation_disposition == CREATE_NEW ||
         creation_disposition == OPEN_ALWAYS) {
+      spdlog::info(L"CreateFile: {} create Directory", filename_str);
       // Cannot create a stream as directory
       if (!stream_names.second.empty()) return STATUS_NOT_A_DIRECTORY;
 
@@ -120,6 +121,7 @@ memfs_createfile(LPCWSTR filename, PDOKAN_IO_SECURITY_CONTEXT security_context,
     if (f && !f->is_directory) return STATUS_NOT_A_DIRECTORY;
     if (!f) return STATUS_OBJECT_NAME_NOT_FOUND;
 
+    spdlog::info(L"CreateFile: {} open Directory", filename_str);
   } else {
     spdlog::info(L"CreateFile: {} is a File", filename_str);
 
